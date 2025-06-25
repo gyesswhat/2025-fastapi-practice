@@ -1,6 +1,6 @@
-from typing import Union, List
+from typing import Union, List, Literal, Annotated
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from fastapi import FastAPI, Query, Path
 from enum import Enum
 
@@ -185,23 +185,23 @@ async def create_item(item: Item): # Pydantic 모델로 선언된 그 함수 매
 # 유효한 파이썬 변수명이 아님에도 사용하고 싶을 때
 # http://127.0.0.1:8000/items/?item-query=foobaritems
 
-@app.get("/items/")
-async def read_items(
-        q: Union[str, None] = Query(
-            default=None,
-            alias="item-query",
-            title="Query string",
-            description="Query string for the items to search in the database that have a good match",
-            min_length=3,
-            max_length=50,
-            pattern="^fixedquery$",
-            deprecated=True,
-        )
-):
-    results = {"items" : [{"item_id": "Foo"}, {"item_id": "Bar"}]}
-    if q:
-        results.update({"q": q})
-    return results
+# @app.get("/items/")
+# async def read_items(
+#         q: Union[str, None] = Query(
+#             default=None,
+#             alias="item-query",
+#             title="Query string",
+#             description="Query string for the items to search in the database that have a good match",
+#             min_length=3,
+#             max_length=50,
+#             pattern="^fixedquery$",
+#             deprecated=True,
+#         )
+# ):
+#     results = {"items" : [{"item_id": "Foo"}, {"item_id": "Bar"}]}
+#     if q:
+#         results.update({"q": q})
+#     return results
 # http://localhost:8000/items/?q=abcfixedqueryabc
 # docs에서 deprecated로 보임
 
@@ -248,3 +248,23 @@ async def read_items(
 # lt: 작거나
 # 숫자 검증은 float 값에도 작동
 # http://localhost:8000/items/0/?q=asdf&size=10.4
+
+##################
+# 쿼리 매개변수 모델
+##################
+
+class FilterParams(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    limit: int = Field(100, gt=0, le=100)
+    offset: int = Field(0, ge=0)
+    order_by: Literal["created_at", "updated_at"] = "created_at"
+    tags: list[str] = []
+
+@app.get("/items/")
+async def read_items(filter_query: Annotated[FilterParams, Query()]):
+    return filter_query
+# http://localhost:8000/items/?limit=1&offset=0&order_by=updated_at&tags=gyeore&tags=haneul
+# 연관된 쿼리 매개변수 그룹이 있다면 Pydantic 모델 을 사용해 선언할 수 있습니다
+# http://localhost:8000/items/?limit=1&offset=0&order_by=updated_at&tags=gyeore&tags=haneul&aa=bb
+# 만약 클라이언트가 쿼리 매개변수로 추가적인 데이터를 보내려고 하면, 클라이언트는 에러 응답을 받게 됩니다.
