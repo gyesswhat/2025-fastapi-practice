@@ -1,7 +1,9 @@
-from typing import Union, List, Literal, Annotated
+from datetime import datetime, timedelta, time
+from typing import Union, List, Literal, Annotated, Set, Dict
+from uuid import UUID
 
-from pydantic import BaseModel, Field
-from fastapi import FastAPI, Query, Path
+from pydantic import BaseModel, Field, HttpUrl
+from fastapi import FastAPI, Query, Path, Body
 from enum import Enum
 
 class ModelName(str, Enum):
@@ -9,11 +11,47 @@ class ModelName(str, Enum):
     resnet = "resnet"
     lenet = "lenet"
 
+class Image(BaseModel):
+    url: HttpUrl
+    name: str
+
+# class Item(BaseModel):
+#     name: str
+#     description: str | None = Field(
+#         default=None, title="The description of the item", max_length=300
+#     )
+#     price: float = Field(gt=0, description="The price must be greater than zero")
+#     tax: float | None = None
+#     tags: Set[str] = []
+#     images: Union[List[Image], None] = None
+
 class Item(BaseModel):
     name: str
-    description: str | None = None
+    description: str | None = Field(default=None, examples=["A very nice Item"])
+    price: float = Field(examples=[35.4])
+    tax: float | None = Field(default=None, examples=[3.7])
+    # model_config = {
+    #     "json_schema_extra": {
+    #         "examples": [
+    #             {
+    #                 "name": "Foo",
+    #                 "description": "A very nice Item",
+    #                 "price": 35.4,
+    #                 "tax": 3.2
+    #             }
+    #         ]
+    #     }
+    # }
+
+class Offer(BaseModel):
+    name: str
+    description: Union[str, None] = None
     price: float
-    tax: float | None = None
+    items: List[Item]
+
+class User(BaseModel):
+    username: str
+    full_name: Union[str, None] = None
 
 app = FastAPI()
 
@@ -268,3 +306,145 @@ async def read_items(filter_query: Annotated[FilterParams, Query()]):
 # 연관된 쿼리 매개변수 그룹이 있다면 Pydantic 모델 을 사용해 선언할 수 있습니다
 # http://localhost:8000/items/?limit=1&offset=0&order_by=updated_at&tags=gyeore&tags=haneul&aa=bb
 # 만약 클라이언트가 쿼리 매개변수로 추가적인 데이터를 보내려고 하면, 클라이언트는 에러 응답을 받게 됩니다.
+
+# @app.put("/items/{item_id}")
+# async def update_item(
+#         *,
+#         item_id: int = Path(title = "The ID of the item to get", ge=0, le=1000),
+#         q: Union[str, None] = None,
+#         item: Union[Item, None] = None
+# ):
+#     results = {"item_id": item_id}
+#     if q:
+#         results.update({"q": q})
+#     if item:
+#         results.update({"item": item})
+#     return results
+
+# @app.put("/items/{item_id}")
+# async def update_item(item_id: int, item: Item, user: User):
+#     results = {"item_id": item_id, "item": item, "user": user}
+#     return results
+
+# @app.put("/items/{item_id}")
+# async def update_item(item_id: int, item: Item, user: User, importance: int = Body()):
+#     results = {"item_id": item_id, "item": item, "user": user, "importance": importance}
+#     return results
+# 단일 값을 그대로 선언한다면, FastAPI는 쿼리 매개변수로 가정할 것입니다.
+# 하지만, FastAPI의 Body를 사용해 다른 본문 키로 처리하도록 제어할 수 있습니다:
+
+# @app.put("/items/{item_id}")
+# async def update_item(
+#         *,
+#         item_id: int,
+#         item: Item,
+#         user: User,
+#         importance: int = Body(gt=0),
+#         q: Union[str, None] = None,
+# ):
+#     results = {"item_id": item_id, "item": item, "user": user, "importance": importance}
+#     if q:
+#         results.update({"q": q})
+#     return results
+
+#단일 본문 매개변수 삽입하기
+# @app.put("/items/{item_id}")
+# async def update_item(item_id: int, item: Item = Body(embed=True)):
+#     results = {"item_id": item_id, "item": item}
+#     return results
+
+@app.post("/offers/")
+async def create_offer(offer: Offer):
+    return offer
+
+@app.post("/images/multiple/")
+async def create_multiple_images(images: List[Image]):
+    return images
+
+@app.post("/index-weights/")
+async def create_index_weights(weights: Dict[int, float]):
+    return weights
+# JSON 사양상 key는 무조건 문자열로만 구성되어야 하며, FastAPI는 이를 받아서 Python에서 기대하는 타입(int, float, 등)으로 자동 변환해줍니다.
+
+# @app.put("/items/{item_id}")
+# async def update_item(
+#         item_id: int,
+#         item: Annotated[
+#             Item,
+#             Body(
+#                 examples=[
+#                     {
+#                         "name": "Gyeore",
+#                         "description": "is very cool",
+#                         "price": 30.5,
+#                         "tax": 10.0
+#                     }
+#                 ]
+#             )
+#         ]
+# ):
+#     results = {"item_id": item, "item": item}
+#     return results
+# Annotated[타입, 메타데이터1, 메타데이터2, ...]
+# FastAPI에서는 Annotated를 이용해 Request Body, Query, Path, Header 등 부가 설정을 타입 힌트 안에 넣을 수 있게 해줍니다.
+# Annotated[...]를 통해 item이 본문에서 온다는 것과 Swagger에서 보여줄 예시를 지정
+
+# @app.put("/items/{item_id}")
+# async def update_item(
+#         *,
+#         item_id: int,
+#         item: Annotated[
+#             Item,
+#             Body(
+#                 openapi_examples={
+#                     "normal": {
+#                         "summary": "A normal example",
+#                         "description": "A **normal** item works correctly.",
+#                         "value": {
+#                             "name": "Foo",
+#                             "description": "A very nice Item",
+#                             "price": 35.4,
+#                             "tax": 3.2,
+#                         },
+#                     },
+#                     "converted": {
+#                         "summary": "An example with converted data",
+#                         "description": "FastAPI can convert price `strings` to actual `numbers` automatically",
+#                         "value": {
+#                             "name": "Bar",
+#                             "price": "35.4",
+#                         },
+#                     },
+#                     "invalid": {
+#                         "summary": "Invalid data is rejected with an error",
+#                         "value": {
+#                             "name": "Baz",
+#                             "price": "thirty five point four",
+#                         },
+#                     },
+#                 },
+#             ),
+#         ],
+# ):
+#     results = {"item_id": item_id, "item": item}
+#     return results
+
+@app.put("/items/{item_id}")
+async def read_items(
+        item_id: UUID,
+        start_datetime: Annotated[datetime, Body()],
+        end_datetime: Annotated[datetime, Body()],
+        process_after: Annotated[timedelta, Body()],
+        repeat_at: Annotated[time | None, Body()] = None
+):
+    start_process = start_datetime + process_after
+    duration = end_datetime - start_process
+    return {
+        "item_id": item_id,
+        "start_datetime": start_datetime,
+        "end_datetime": end_datetime,
+        "process_after": process_after,
+        "repeat_at": repeat_at,
+        "start_process": start_process,
+        "duration": duration
+    }
