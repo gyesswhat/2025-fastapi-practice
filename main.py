@@ -3,7 +3,7 @@ from typing import Union, List, Literal, Annotated, Set, Dict, Any
 from uuid import UUID
 
 from pydantic import BaseModel, Field, HttpUrl, EmailStr
-from fastapi import FastAPI, Query, Path, Body, Cookie, Header, status
+from fastapi import FastAPI, Query, Path, Body, Cookie, Header, status, Form, File, UploadFile
 from enum import Enum
 
 class ModelName(str, Enum):
@@ -641,15 +641,15 @@ class CommonHeaders(BaseModel):
 # 이를 위해 표준 Python 타입 힌트인 typing.Union을 사용할 수 있습니다:
 # 하지만 이를 response_model=PlaneItem | CarItem과 같이 할당하면 에러가 발생합니다. 이는 Python이 이를 타입 어노테이션으로 해석하지 않고, PlaneItem과 CarItem 사이의 잘못된 연산(invalid operation)을 시도하기 때문입니다
 
-class Item(BaseModel):
-    name: str
-    description: str
-
-
-items = [
-    {"name": "Foo", "description": "There comes my hero"},
-    {"name": "Red", "description": "It's my aeroplane"},
-]
+# class Item(BaseModel):
+#     name: str
+#     description: str
+#
+#
+# items = [
+#     {"name": "Foo", "description": "There comes my hero"},
+#     {"name": "Red", "description": "It's my aeroplane"},
+# ]
 
 
 # @app.get("/items/", response_model=list[Item])
@@ -668,3 +668,65 @@ items = [
 # @app.post("/items/", status_code=status.HTTP_201_CREATED)
 # async def create_item(name: str):
 #     return {"name": name}
+
+################
+# 폼 데이터
+################
+
+# @app.post("/login/")
+# async def login(username: Annotated[str, Form()], password: Annotated[str, Form()]):
+#     return {"username": username}
+
+################
+# 폼 모델
+################
+
+# class FormData(BaseModel):
+#     username: str
+#     password: str
+#     model_config = {"extra": "forbid"}
+#
+# @app.post("/login/")
+# async def login(data: Annotated[FormData, Form()]):
+#     return data;
+
+################
+# 파일 요청
+################
+
+# @app.post("/files/")
+# async def create_file(file: bytes = File()):
+#     return {"file_size": len(file)}
+# 경로 작동 함수의 매개변수를 bytes 로 선언하는 경우 FastAPI는 파일을 읽고 bytes 형태의 내용을 전달합니다.
+# 이것은 전체 내용이 메모리에 저장된다는 것을 의미한다는 걸 염두하기 바랍니다. 이는 작은 크기의 파일들에 적합합니다.
+# 어떤 경우에는 UploadFile 을 사용하는 것이 더 유리합니다.
+
+
+# @app.post("/uploadfile/")
+# async def create_upload_file(file: UploadFile):
+#     return {"filename": file.filename}
+# UploadFile 을 사용하는 것은 bytes 과 비교해 다음과 같은 장점이 있습니다:
+# "스풀 파일"을 사용합니다.
+# 최대 크기 제한까지만 메모리에 저장되며, 이를 초과하는 경우 디스크에 저장됩니다.
+# 따라서 이미지, 동영상, 큰 이진코드와 같은 대용량 파일들을 많은 메모리를 소모하지 않고 처리하기에 적합합니다.
+# 업로드 된 파일의 메타데이터를 얻을 수 있습니다.
+# file-like async 인터페이스를 갖고 있습니다.
+# file-like object를 필요로하는 다른 라이브러리에 직접적으로 전달할 수 있는 파이썬 SpooledTemporaryFile 객체를 반환합니다.
+
+# @app.post("/uploadfiles/")
+# async def create_upload_file(files: List[UploadFile]):
+#     return {"filename": [file.filename for file in files]}
+
+################
+# 폼 및 파일 요청
+################
+# @app.post("/files/")
+# async def create_file(
+#         file: bytes = File(), fileb: UploadFile = File(), token: str = Form()
+# ):
+#     return {
+#         "file_size": len(file),
+#         "token": token,
+#         "fileb_content_type": fileb.content_type,
+#     }
+
